@@ -1,0 +1,12 @@
+[package]
+name = "aqua_cert"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+Iota = { git = "https://github.com/iotaledger/iota.git", subdir = "crates/iota-framework/packages/iota-framework", rev = "framework/testnet" }
+
+[addresses]
+aqua_cert = "0x0"
+iota = "0x2"
+std = "0x1"

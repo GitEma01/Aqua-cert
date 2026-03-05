@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --color-aqua-50: #f0fdff;
+  --color-aqua-100: #ccfaff;
+  --color-aqua-200: #99f5ff;
+  --color-aqua-300: #66efff;
+  --color-aqua-400: #33e8ff;
+  --color-aqua-500: #00e0ff;
+  --color-aqua-600: #00b3cc;
+  --color-aqua-700: #008699;
+  --color-aqua-800: #005a66;
+  --color-aqua-900: #002d33;
+}
+
+body {
+  @apply bg-slate-900 text-white;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-500;
+}
