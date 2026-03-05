@@ -26,7 +26,11 @@ interface Reading {
 const API_URL = 'http://localhost:3001';
 const WS_URL = 'ws://localhost:3001';
 
-export default function Dashboard() {
+interface DashboardProps {
+  hideHeader?: boolean;
+}
+
+export default function Dashboard({ hideHeader = false }: DashboardProps) {
   const account = useCurrentAccount();
   const [stats, setStats] = useState<Stats | null>(null);
   const [readings, setReadings] = useState<Reading[]>([]);
@@ -107,7 +111,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
-      <header className="bg-slate-800/50 backdrop-blur border-b border-slate-700">
+      {!hideHeader && <header className="bg-slate-800/50 backdrop-blur border-b border-slate-700">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -128,7 +132,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-      </header>
+      </header>}
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Stats Cards */}

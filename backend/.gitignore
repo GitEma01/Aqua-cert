@@ -1,0 +1,4 @@
+aqua-cert.db
+node_modules/
+dist/
+.env

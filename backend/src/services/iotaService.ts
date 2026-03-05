@@ -9,7 +9,22 @@ interface TransactionResult {
   success: boolean;
   digest?: string;
   objectId?: string;
+  footprintClass?: string;
   error?: string;
+}
+
+export interface CertificateObject {
+  objectId: string;
+  certificateNumber: string;
+  companyName: string;
+  periodStart: number;
+  periodEnd: number;
+  totalLiters: number;
+  totalReadings: number;
+  footprintClass: string;
+  certifier: string;
+  issuedAt: number;
+  registryId: string;
 }
 
 class IOTAService {
@@ -148,10 +163,14 @@ class IOTAService {
         (obj: any) => obj.type === 'created' && obj.objectType.includes('WaterCertificate')
       );
 
+      const certEvent = result.events?.find((e: any) => e.type.includes('CertificateIssued'));
+      const footprintClass = (certEvent?.parsedJson as any)?.water_footprint_class ?? undefined;
+
       return {
         success: true,
         digest: result.digest,
-        objectId: createdObject ? (createdObject as any).objectId : undefined
+        objectId: createdObject ? (createdObject as any).objectId : undefined,
+        footprintClass
       };
     } catch (error: any) {
       console.error('❌ Error issuing certificate:', error);
@@ -230,6 +249,97 @@ class IOTAService {
       return events.data;
     } catch (error) {
       console.error('Error querying events:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Registra un nuovo dispositivo IoT on-chain
+   */
+  public async registerDevice(
+    adminCapId: string,
+    registryId: string,
+    deviceId: string,
+    location: string,
+    deviceType: string
+  ): Promise<TransactionResult> {
+    try {
+      const packageId = process.env.PACKAGE_ID;
+      if (!packageId) throw new Error('PACKAGE_ID non configurato');
+
+      const tx = new Transaction();
+      tx.setGasBudget(10000000);
+
+      tx.moveCall({
+        target: `${packageId}::water_registry::register_device`,
+        arguments: [
+          tx.object(adminCapId),
+          tx.object(registryId),
+          tx.pure.string(deviceId),
+          tx.pure.string(location),
+          tx.pure.string(deviceType)
+        ]
+      });
+
+      const result = await this.client.signAndExecuteTransaction({
+        transaction: tx,
+        signer: this.keypair,
+        options: { showEffects: true, showObjectChanges: true }
+      });
+
+      console.log(`✅ Device registered on IOTA: ${result.digest}`);
+
+      const deviceCapObj = result.objectChanges?.find(
+        (obj: any) => obj.type === 'created' && obj.objectType.includes('DeviceCap')
+      );
+
+      return {
+        success: true,
+        digest: result.digest,
+        objectId: deviceCapObj ? (deviceCapObj as any).objectId : undefined
+      };
+    } catch (error: any) {
+      console.error('❌ Error registering device:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Ottieni i certificati NFT posseduti da un indirizzo
+   */
+  public async getCertificatesByOwner(ownerAddress: string): Promise<CertificateObject[]> {
+    try {
+      const packageId = process.env.PACKAGE_ID;
+      if (!packageId) throw new Error('PACKAGE_ID non configurato');
+
+      const result = await this.client.getOwnedObjects({
+        owner: ownerAddress,
+        filter: {
+          StructType: `${packageId}::water_certificate::WaterCertificate`
+        },
+        options: { showContent: true }
+      });
+
+      return result.data
+        .filter(item => item.data?.content?.dataType === 'moveObject')
+        .map(item => {
+          const fields = (item.data!.content as any).fields;
+          return {
+            objectId: item.data!.objectId,
+            certificateNumber: fields.certificate_number ?? '',
+            companyName: fields.company_name ?? '',
+            periodStart: Number(fields.period_start ?? 0),
+            periodEnd: Number(fields.period_end ?? 0),
+            totalLiters: Number(fields.total_liters ?? 0),
+            totalReadings: Number(fields.total_readings ?? 0),
+            footprintClass: fields.water_footprint_class ?? '?',
+            certifier: fields.certifier ?? '',
+            issuedAt: Number(fields.issued_at ?? 0),
+            registryId: fields.registry_id?.id ?? ''
+          };
+        });
+    } catch (error: any) {
+      console.error('❌ Error fetching certificates:', error);
       return [];
     }
   }

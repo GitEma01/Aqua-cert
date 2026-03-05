@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import crypto from 'crypto';
+import { insertReading, insertDevice, getReadings, getDeviceReadings, getReadingStats } from '../database';
 
 export interface WaterReading {
   deviceId: string;
@@ -18,14 +19,13 @@ export interface Device {
   name: string;
   location: string;
   type: 'irrigation' | 'industrial' | 'datacenter';
-  baseFlowRate: number;  // Litri/ora base
-  variance: number;      // Variazione percentuale
+  baseFlowRate: number;
+  variance: number;
 }
 
 export class IoTSimulator extends EventEmitter {
   private devices: Device[] = [];
   private intervalId: NodeJS.Timeout | null = null;
-  private readings: Map<string, WaterReading[]> = new Map();
 
   constructor() {
     super();
@@ -39,7 +39,7 @@ export class IoTSimulator extends EventEmitter {
         name: 'Campo Irrigazione Nord',
         location: 'Azienda Agricola Verdi - Settore A',
         type: 'irrigation',
-        baseFlowRate: 500,  // 500 L/h
+        baseFlowRate: 500,
         variance: 0.3
       },
       {
@@ -68,8 +68,17 @@ export class IoTSimulator extends EventEmitter {
       }
     ];
 
-    // Inizializza storage per ogni device
-    this.devices.forEach(d => this.readings.set(d.id, []));
+    // Seed initial devices into SQLite (idempotent)
+    for (const device of this.devices) {
+      insertDevice({
+        device_id: device.id,
+        name: device.name,
+        location: device.location,
+        device_type: device.type,
+        device_cap_id: null,
+        active: 1
+      });
+    }
   }
 
   public start(intervalMs: number = 5000): void {
@@ -80,7 +89,17 @@ export class IoTSimulator extends EventEmitter {
     this.intervalId = setInterval(() => {
       this.devices.forEach(device => {
         const reading = this.generateReading(device);
-        this.readings.get(device.id)?.push(reading);
+        // Persist to SQLite immediately
+        insertReading({
+          device_id: reading.deviceId,
+          liters: reading.liters,
+          timestamp: reading.timestamp,
+          flow_rate: reading.rawData.flowRate,
+          pressure: reading.rawData.pressure,
+          temperature: reading.rawData.temperature,
+          hash: reading.hash,
+          on_chain: 0
+        });
         this.emit('reading', reading);
       });
     }, intervalMs);
@@ -94,34 +113,35 @@ export class IoTSimulator extends EventEmitter {
     }
   }
 
+  public addDevice(device: Device): void {
+    if (this.devices.find(d => d.id === device.id)) return;
+    this.devices.push(device);
+    insertDevice({
+      device_id: device.id,
+      name: device.name,
+      location: device.location,
+      device_type: device.type,
+      device_cap_id: null,
+      active: 1
+    });
+  }
+
   private generateReading(device: Device): WaterReading {
     const now = Date.now();
-    
-    // Simula variazione nel flusso
     const variationFactor = 1 + (Math.random() - 0.5) * 2 * device.variance;
     const flowRate = device.baseFlowRate * variationFactor;
-    
-    // Converti in litri per questo intervallo (assumendo 5 secondi)
-    const liters = Math.round((flowRate / 3600) * 5 * 1000);  // x1000 per precisione
-    
-    // Genera dati grezzi realistici
+    const liters = Math.round((flowRate / 3600) * 5 * 1000);
+
     const rawData = {
       flowRate: Math.round(flowRate * 100) / 100,
-      pressure: Math.round((2.5 + Math.random() * 1.5) * 100) / 100,  // 2.5-4 bar
-      temperature: Math.round((15 + Math.random() * 10) * 100) / 100  // 15-25°C
+      pressure: Math.round((2.5 + Math.random() * 1.5) * 100) / 100,
+      temperature: Math.round((15 + Math.random() * 10) * 100) / 100
     };
 
-    // Genera hash dei dati per integrità
     const dataString = JSON.stringify({ deviceId: device.id, liters, timestamp: now, rawData });
     const hash = crypto.createHash('sha256').update(dataString).digest('hex');
 
-    return {
-      deviceId: device.id,
-      liters,
-      timestamp: now,
-      rawData,
-      hash
-    };
+    return { deviceId: device.id, liters, timestamp: now, rawData, hash };
   }
 
   public getDevices(): Device[] {
@@ -129,34 +149,27 @@ export class IoTSimulator extends EventEmitter {
   }
 
   public getDeviceReadings(deviceId: string, limit: number = 100): WaterReading[] {
-    const readings = this.readings.get(deviceId) || [];
-    return readings.slice(-limit);
+    return getDeviceReadings(deviceId, limit).map(r => ({
+      deviceId: r.device_id,
+      liters: r.liters,
+      timestamp: r.timestamp,
+      rawData: { flowRate: r.flow_rate, pressure: r.pressure, temperature: r.temperature },
+      hash: r.hash
+    }));
   }
 
   public getAllReadings(limit: number = 100): WaterReading[] {
-    const allReadings: WaterReading[] = [];
-    this.readings.forEach(deviceReadings => {
-      allReadings.push(...deviceReadings.slice(-limit));
-    });
-    return allReadings.sort((a, b) => b.timestamp - a.timestamp).slice(0, limit);
+    return getReadings(limit).map(r => ({
+      deviceId: r.device_id,
+      liters: r.liters,
+      timestamp: r.timestamp,
+      rawData: { flowRate: r.flow_rate, pressure: r.pressure, temperature: r.temperature },
+      hash: r.hash
+    }));
   }
 
   public getStats(): { totalReadings: number; totalLiters: number; byDevice: Record<string, { readings: number; liters: number }> } {
-    let totalReadings = 0;
-    let totalLiters = 0;
-    const byDevice: Record<string, { readings: number; liters: number }> = {};
-
-    this.readings.forEach((readings, deviceId) => {
-      const deviceLiters = readings.reduce((sum, r) => sum + r.liters, 0);
-      byDevice[deviceId] = {
-        readings: readings.length,
-        liters: deviceLiters
-      };
-      totalReadings += readings.length;
-      totalLiters += deviceLiters;
-    });
-
-    return { totalReadings, totalLiters, byDevice };
+    return getReadingStats();
   }
 }
 

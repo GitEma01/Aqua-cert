@@ -135,9 +135,47 @@ Backend address: 0x7b94665f11a112e1068b2c333d9e962a2cb1422a767245aa337384335db16
 
 ---
 
+## Git Versions (Rollback Tags)
+
+| Tag | State |
+|---|---|
+| `v0.1.0-baseline` | Original working MVP — IoT simulator, WebSocket dashboard, single certificate issuance |
+| `v0.2.0` | Business upgrade — SQLite persistence, Certificate History tab, Device Management tab |
+
+**Rollback command:** `git checkout <tag>`
+
+---
+
+## Business Features (v0.2.0)
+
+### New frontend tabs
+- **Dashboard** — original real-time view (unchanged)
+- **Certificates** — shows all WaterCertificate NFTs owned by connected wallet (queries on-chain via `GET /certificates/:address`)
+- **Devices** — lists all IoT devices with live stats; per-device detail panel; on-chain device registration form
+
+### SQLite persistence
+- DB file: `backend/aqua-cert.db` (excluded from git)
+- All IoT readings written to SQLite on every tick — survive backend restarts
+- Certificates and devices also persisted locally as cache
+
+### New backend endpoints
+| Method | Path | Description |
+|---|---|---|
+| GET | `/certificates/:address` | WaterCertificate NFTs owned by IOTA address |
+| POST | `/devices/register` | Register new device on-chain (`{ deviceId, name, location, deviceType }`) |
+| GET | `/devices/:deviceId/stats` | Per-device reading count, liters, last reading |
+
+### Key implementation files
+- `backend/src/database.ts` — SQLite schema + all query helpers
+- `frontend/src/components/CertificateHistory.tsx` — certificate card grid
+- `frontend/src/components/DeviceManager.tsx` — device list + registration form
+
+---
+
 ## Development Notes
 
 - Readings are batched: every 10 sensor readings are written to the blockchain in one batch.
 - WebSocket broadcasts each reading in real time to connected frontend clients.
 - IOTA testnet faucet: https://faucet.testnet.iota.cafe
 - Move contract addresses are set in `aqua_cert/Move.toml` (`aqua_cert = "0x0"` before publish).
+- `GET /readings/:deviceId` returns `WaterReading[]` shape: `{ deviceId, liters, timestamp, rawData: { flowRate, pressure, temperature }, hash }` — note camelCase fields.
