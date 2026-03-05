@@ -1,0 +1,26 @@
+{
+  "name": "aqua-cert-backend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "nodemon src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@iota/iota-sdk": "^1.6.0",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "dotenv": "^17.0.0",
+    "express": "^5.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.0.0",
+    "nodemon": "^3.1.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.6.0"
+  }
+}
