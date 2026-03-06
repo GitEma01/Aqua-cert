@@ -1,7 +1,8 @@
-import { IotaClient, IotaClientOptions } from '@iota/iota-sdk/client';
+import { IotaClient } from '@iota/iota-sdk/client';
 import { Ed25519Keypair } from '@iota/iota-sdk/keypairs/ed25519';
 import { Transaction } from '@iota/iota-sdk/transactions';
 import dotenv from 'dotenv';
+import { gasStationService } from './gasStationService';
 
 dotenv.config();
 
@@ -47,10 +48,53 @@ class IOTAService {
     return this.keypair.getPublicKey().toIotaAddress();
   }
 
+  /** Expose client for tx.build() in server-side sponsored flows */
+  public getClient(): IotaClient { return this.client; }
+
   public async getBalance(): Promise<bigint> {
     const address = await this.getAddress();
     const balance = await this.client.getBalance({ owner: address });
     return BigInt(balance.totalBalance);
+  }
+
+  /**
+   * Executes a transaction — uses IOTA Gas Station when configured,
+   * otherwise falls back to direct signing with the backend keypair.
+   */
+  private async executeTransaction(
+    tx: Transaction,
+    options = { showEffects: true, showEvents: true, showObjectChanges: true }
+  ) {
+    if (gasStationService.isAvailable()) {
+      const senderAddress = await this.getAddress();
+      const reservation = await gasStationService.reserveGas();
+
+      tx.setSender(senderAddress);
+      tx.setGasOwner(reservation.sponsor_address);
+      tx.setGasPayment(reservation.gas_coins as any);
+      tx.setGasBudget(50_000_000);
+
+      const txBytes = await tx.build({ client: this.client });
+      const txBytesBase64 = Buffer.from(txBytes).toString('base64');
+      const { signature } = await this.keypair.signTransaction(txBytes);
+
+      const { digest } = await gasStationService.executeTx(
+        reservation.reservation_id,
+        txBytesBase64,
+        signature
+      );
+
+      console.log(`⛽ Gas-sponsored tx: ${digest}`);
+
+      // Fetch full details (objectChanges, events) for downstream parsing
+      return this.client.getTransactionBlock({ digest, options });
+    }
+
+    return this.client.signAndExecuteTransaction({
+      transaction: tx,
+      signer: this.keypair,
+      options
+    });
   }
 
   /**
@@ -81,15 +125,7 @@ class IOTAService {
         ],
       });
 
-      const result = await this.client.signAndExecuteTransaction({
-        transaction: tx,
-        signer: this.keypair,
-        options: {
-          showEffects: true,
-          showEvents: true,
-          showObjectChanges: true
-        }
-      });
+      const result = await this.executeTransaction(tx);
 
       console.log(`✅ Reading recorded on IOTA: ${result.digest}`);
       
@@ -147,15 +183,7 @@ class IOTAService {
         ],
       });
 
-      const result = await this.client.signAndExecuteTransaction({
-        transaction: tx,
-        signer: this.keypair,
-        options: {
-          showEffects: true,
-          showEvents: true,
-          showObjectChanges: true
-        }
-      });
+      const result = await this.executeTransaction(tx);
 
       console.log(`✅ Certificate issued: ${result.digest}`);
 
@@ -209,14 +237,7 @@ class IOTAService {
         ],
       });
 
-      const result = await this.client.signAndExecuteTransaction({
-        transaction: tx,
-        signer: this.keypair,
-        options: {
-          showEffects: true,
-          showEvents: true
-        }
-      });
+      const result = await this.executeTransaction(tx);
 
       console.log(`✅ Tokens minted: ${result.digest}`);
 
@@ -281,11 +302,7 @@ class IOTAService {
         ]
       });
 
-      const result = await this.client.signAndExecuteTransaction({
-        transaction: tx,
-        signer: this.keypair,
-        options: { showEffects: true, showObjectChanges: true }
-      });
+      const result = await this.executeTransaction(tx);
 
       console.log(`✅ Device registered on IOTA: ${result.digest}`);
 
