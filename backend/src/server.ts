@@ -22,6 +22,7 @@ import {
   getNotarizationByHash
 } from './database';
 import { notarizationService } from './services/notarizationService';
+import { graphqlService } from './services/graphqlService';
 
 dotenv.config();
 
@@ -290,6 +291,48 @@ app.get('/gas-station/status', (req: Request, res: Response) => {
   });
 });
 
+// ============ GRAPHQL ENDPOINTS ============
+
+// All WaterCertificate NFTs ever issued, across every wallet
+app.get('/graphql/certificates', async (req: Request, res: Response) => {
+  try {
+    const certs = await graphqlService.getAllCertificates();
+    res.json(certs);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Recent CertificateIssued on-chain events
+app.get('/graphql/events/certificates', async (req: Request, res: Response) => {
+  try {
+    const events = await graphqlService.getCertificateEvents();
+    res.json(events);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Recent ReadingRecorded on-chain events
+app.get('/graphql/events/readings', async (req: Request, res: Response) => {
+  try {
+    const events = await graphqlService.getReadingEvents();
+    res.json(events);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Full on-chain analytics — certs + events + aggregates — single call
+app.get('/graphql/analytics', async (req: Request, res: Response) => {
+  try {
+    const analytics = await graphqlService.getOnChainAnalytics();
+    res.json(analytics);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============ EVENT HANDLERS ============
 
 iotSimulator.on('reading', (reading: WaterReading) => {
@@ -390,6 +433,10 @@ server.listen(PORT, () => {
    - GET  /notarizations/:hash     - Single notarization by hash
    - POST /notarizations/anchor    - Manual notarization anchor
    - GET  /gas-station/status      - Gas station availability
+   - GET  /graphql/certificates    - All certs (all wallets, via GraphQL)
+   - GET  /graphql/events/certificates - CertificateIssued events
+   - GET  /graphql/events/readings - ReadingRecorded events
+   - GET  /graphql/analytics       - Full on-chain analytics snapshot
 
 🌊 ========================================
   `);

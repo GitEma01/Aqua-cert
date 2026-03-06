@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Droplets, Award, Cpu, ShieldCheck } from 'lucide-react';
+import { Droplets, Award, Cpu, ShieldCheck, Globe } from 'lucide-react';
 import { ConnectButton, useCurrentAccount } from '@iota/dapp-kit';
 import Dashboard from './components/Dashboard';
 import CertificateHistory from './components/CertificateHistory';
 import DeviceManager from './components/DeviceManager';
 import NotarizationProofs from './components/NotarizationProofs';
+import Analytics from './components/Analytics';
 
-type Tab = 'dashboard' | 'certificates' | 'devices' | 'notarizations';
+type Tab = 'dashboard' | 'certificates' | 'devices' | 'notarizations' | 'analytics';
 
 function TabButton({
   active,
@@ -81,6 +82,12 @@ export default function App() {
                 icon={<ShieldCheck className="w-4 h-4" />}
                 label="Proofs"
               />
+              <TabButton
+                active={activeTab === 'analytics'}
+                onClick={() => setActiveTab('analytics')}
+                icon={<Globe className="w-4 h-4" />}
+                label="Analytics"
+              />
             </nav>
 
             {/* Wallet */}
@@ -96,6 +103,7 @@ export default function App() {
       {activeTab === 'certificates'   && <CertificateHistory walletAddress={account?.address ?? ''} />}
       {activeTab === 'devices'        && <DeviceManager walletAddress={account?.address ?? ''} />}
       {activeTab === 'notarizations'  && <NotarizationProofs />}
+      {activeTab === 'analytics'      && <Analytics />}
     </div>
   );
 }
