@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Award, ExternalLink, Loader2, Droplets, Calendar, BarChart2 } from 'lucide-react';
+import { Award, ExternalLink, Loader2, Droplets, Calendar, BarChart2, Zap, Send, CheckCircle2 } from 'lucide-react';
+import { useSignTransaction } from '@iota/dapp-kit';
+import { fromBase64 } from '@iota/iota-sdk/utils';
 
 interface CertificateObject {
   objectId: string;
@@ -43,11 +45,63 @@ function formatDate(ts: number): string {
 }
 
 const API_URL = 'http://localhost:3001';
+const EXPLORER = 'https://explorer.rebased.iota.org';
+const NETWORK = 'testnet';
+
+// ── Gas-sponsored transfer hook ───────────────────────────────────────────────
+function useGasStationTransfer(walletAddress: string) {
+  const { mutateAsync: signTransaction } = useSignTransaction();
+  const [state, setState] = useState<Record<string, 'idle' | 'signing' | 'done' | string>>({});
+
+  const transfer = async (objectId: string, recipient: string) => {
+    setState(s => ({ ...s, [objectId]: 'signing' }));
+    try {
+      // Step 1 — backend prepares tx + reserves gas
+      const prepRes = await fetch(`${API_URL}/gas-station/prepare-transfer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ objectId, recipient, sender: walletAddress })
+      });
+      if (!prepRes.ok) throw new Error((await prepRes.json()).error);
+      const { txBytes, reservationId, sponsorAddress } = await prepRes.json();
+
+      // Step 2 — user wallet signs (dapp-kit, no gas needed)
+      const { signature } = await signTransaction({
+        transaction: { toJSON: async () => ({ txBytes }) } as any
+      });
+
+      // Step 3 — backend relays signature to gas station
+      const execRes = await fetch(`${API_URL}/gas-station/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservationId, txBytes, userSig: signature })
+      });
+      if (!execRes.ok) throw new Error((await execRes.json()).error);
+      const { digest } = await execRes.json();
+
+      setState(s => ({ ...s, [objectId]: `done:${digest}` }));
+    } catch (e: any) {
+      setState(s => ({ ...s, [objectId]: `error:${e.message}` }));
+    }
+  };
+
+  return { transfer, state };
+}
 
 export default function CertificateHistory({ walletAddress }: Props) {
   const [certificates, setCertificates] = useState<CertificateObject[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gasStationActive, setGasStationActive] = useState(false);
+  const [transferTarget, setTransferTarget] = useState<Record<string, string>>({});
+  const { transfer, state: transferState } = useGasStationTransfer(walletAddress);
+
+  useEffect(() => {
+    fetch(`${API_URL}/gas-station/status`)
+      .then(r => r.json())
+      .then(d => setGasStationActive(d.available && d.healthy))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!walletAddress) return;
@@ -59,7 +113,7 @@ export default function CertificateHistory({ walletAddress }: Props) {
         setCertificates(Array.isArray(data) ? data : []);
         setLoading(false);
       })
-      .catch(err => {
+      .catch(() => {
         setError('Failed to load certificates. Is the backend running?');
         setLoading(false);
       });
@@ -165,7 +219,7 @@ export default function CertificateHistory({ walletAddress }: Props) {
                 <div className="pt-1 border-t border-slate-700 flex items-center justify-between">
                   <p className="text-slate-600 text-xs">Issued {formatDate(cert.issuedAt)}</p>
                   <a
-                    href={`https://explorer.iota.org/testnet/object/${cert.objectId}`}
+                    href={`${EXPLORER}/object/${cert.objectId}?network=${NETWORK}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 text-aqua-400 hover:text-aqua-300 text-xs transition-colors"
@@ -174,6 +228,50 @@ export default function CertificateHistory({ walletAddress }: Props) {
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
+
+                {/* Gas-sponsored transfer — workshop demo flow */}
+                {gasStationActive && (() => {
+                  const ts = transferState[cert.objectId] ?? 'idle';
+                  if (ts.startsWith('done:')) {
+                    const digest = ts.slice(5);
+                    return (
+                      <div className="flex items-center gap-2 text-green-400 text-xs bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        <span>Transferred! </span>
+                        <a href={`${EXPLORER}/transaction/${digest}?network=${NETWORK}`} target="_blank" rel="noopener noreferrer" className="underline truncate">{digest.slice(0, 12)}...</a>
+                      </div>
+                    );
+                  }
+                  if (ts.startsWith('error:')) {
+                    return <p className="text-red-400 text-xs bg-red-500/10 rounded-lg px-3 py-2">{ts.slice(6)}</p>;
+                  }
+                  return (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1 text-purple-300 text-xs">
+                        <Zap className="w-3 h-3" /> Gas-Free Transfer (Gas Station)
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Recipient address 0x..."
+                          value={transferTarget[cert.objectId] ?? ''}
+                          onChange={e => setTransferTarget(t => ({ ...t, [cert.objectId]: e.target.value }))}
+                          className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 min-w-0"
+                        />
+                        <button
+                          onClick={() => transfer(cert.objectId, transferTarget[cert.objectId] ?? '')}
+                          disabled={ts === 'signing' || !transferTarget[cert.objectId]}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 rounded-lg text-xs disabled:opacity-50 shrink-0 transition-colors"
+                        >
+                          {ts === 'signing'
+                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                            : <Send className="w-3 h-3" />}
+                          {ts === 'signing' ? 'Signing...' : 'Send'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           ))}

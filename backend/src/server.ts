@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import express, { Request, Response } from 'express';
+import { Transaction } from '@iota/iota-sdk/transactions';
 import cors from 'cors';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'http';
@@ -23,6 +24,7 @@ import {
 } from './database';
 import { notarizationService } from './services/notarizationService';
 import { graphqlService } from './services/graphqlService';
+import { gasStationService } from './services/gasStationService';
 
 dotenv.config();
 
@@ -283,12 +285,67 @@ app.post('/notarizations/anchor', async (req: Request, res: Response) => {
   res.json(result);
 });
 
-// Gas station status endpoint — lets frontend know if gas sponsorship is available
-app.get('/gas-station/status', (req: Request, res: Response) => {
+// Gas station status endpoint
+app.get('/gas-station/status', async (req: Request, res: Response) => {
+  const available = gasStationService.isAvailable();
+  const healthy = available ? await gasStationService.healthCheck() : false;
   res.json({
-    available: !!process.env.GAS_STATION_URL,
+    available,
+    healthy,
     url: process.env.GAS_STATION_URL ?? null
   });
+});
+
+// ── Workshop flow: user signs, gas station pays ───────────────────────────────
+
+// Step 1: Build a sponsored transfer-certificate transaction and reserve gas.
+// Returns unsigned tx_bytes for the frontend wallet to sign.
+app.post('/gas-station/prepare-transfer', async (req: Request, res: Response) => {
+  if (!gasStationService.isAvailable()) {
+    return res.status(503).json({ error: 'Gas station not configured' }) as any;
+  }
+  const { objectId, recipient, sender } = req.body;
+  if (!objectId || !recipient || !sender) {
+    return res.status(400).json({ error: 'objectId, recipient, sender required' }) as any;
+  }
+  try {
+    const reservation = await gasStationService.reserveGas();
+
+    const tx = new Transaction();
+    tx.setSender(sender);
+    tx.setGasOwner(reservation.sponsor_address);
+    tx.setGasPayment(reservation.gas_coins as any);
+    tx.setGasBudget(50_000_000);
+    tx.transferObjects([tx.object(objectId)], recipient);
+
+    const txBytes = await tx.build({ client: iotaService.getClient() });
+    const txBytesBase64 = Buffer.from(txBytes).toString('base64');
+
+    res.json({
+      txBytes: txBytesBase64,
+      reservationId: reservation.reservation_id,
+      sponsorAddress: reservation.sponsor_address
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Step 2: Submit the user-signed transaction to the gas station for execution.
+app.post('/gas-station/execute', async (req: Request, res: Response) => {
+  if (!gasStationService.isAvailable()) {
+    return res.status(503).json({ error: 'Gas station not configured' }) as any;
+  }
+  const { reservationId, txBytes, userSig } = req.body;
+  if (!reservationId || !txBytes || !userSig) {
+    return res.status(400).json({ error: 'reservationId, txBytes, userSig required' }) as any;
+  }
+  try {
+    const result = await gasStationService.executeTx(reservationId, txBytes, userSig);
+    res.json({ success: true, digest: result.digest });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // ============ GRAPHQL ENDPOINTS ============
