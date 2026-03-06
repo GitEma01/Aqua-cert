@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Droplets, Award, Cpu } from 'lucide-react';
+import { Droplets, Award, Cpu, ShieldCheck } from 'lucide-react';
 import { ConnectButton, useCurrentAccount } from '@iota/dapp-kit';
 import Dashboard from './components/Dashboard';
 import CertificateHistory from './components/CertificateHistory';
 import DeviceManager from './components/DeviceManager';
+import NotarizationProofs from './components/NotarizationProofs';
 
-type Tab = 'dashboard' | 'certificates' | 'devices';
+type Tab = 'dashboard' | 'certificates' | 'devices' | 'notarizations';
 
 function TabButton({
   active,
@@ -74,6 +75,12 @@ export default function App() {
                 icon={<Cpu className="w-4 h-4" />}
                 label="Devices"
               />
+              <TabButton
+                active={activeTab === 'notarizations'}
+                onClick={() => setActiveTab('notarizations')}
+                icon={<ShieldCheck className="w-4 h-4" />}
+                label="Proofs"
+              />
             </nav>
 
             {/* Wallet */}
@@ -85,9 +92,10 @@ export default function App() {
       </header>
 
       {/* Tab content */}
-      {activeTab === 'dashboard'    && <Dashboard hideHeader />}
-      {activeTab === 'certificates' && <CertificateHistory walletAddress={account?.address ?? ''} />}
-      {activeTab === 'devices'      && <DeviceManager walletAddress={account?.address ?? ''} />}
+      {activeTab === 'dashboard'      && <Dashboard hideHeader />}
+      {activeTab === 'certificates'   && <CertificateHistory walletAddress={account?.address ?? ''} />}
+      {activeTab === 'devices'        && <DeviceManager walletAddress={account?.address ?? ''} />}
+      {activeTab === 'notarizations'  && <NotarizationProofs />}
     </div>
   );
 }
