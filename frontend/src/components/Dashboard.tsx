@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ConnectButton, useCurrentAccount } from '@iota/dapp-kit';
-import { Droplets, Activity, Award, Coins, TrendingDown, Leaf } from 'lucide-react';
+import { Droplets, Activity, Award, Coins, TrendingDown, Leaf, ShieldCheck } from 'lucide-react';
 import WaterFlowChart from './WaterFlowChart';
 import CertificateCard from './CertificateCard';
 import StatsCard from './StatsCard';
@@ -23,6 +23,16 @@ interface Reading {
   hash: string;
 }
 
+interface Notarization {
+  id: number;
+  batch_hash: string;
+  description: string;
+  object_id: string | null;
+  tx_digest: string | null;
+  anchored_at: number;
+  gas_station: 0 | 1;
+}
+
 const API_URL = 'http://localhost:3001';
 const WS_URL = 'ws://localhost:3001';
 
@@ -35,6 +45,8 @@ export default function Dashboard({ hideHeader = false }: DashboardProps) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [readings, setReadings] = useState<Reading[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [notarizations, setNotarizations] = useState<Notarization[]>([]);
+  const [latestNotarization, setLatestNotarization] = useState<Notarization | null>(null);
 
   // WebSocket per dati real-time
   useEffect(() => {
@@ -49,6 +61,9 @@ export default function Dashboard({ hideHeader = false }: DashboardProps) {
       const data = JSON.parse(event.data);
       if (data.type === 'reading') {
         setReadings(prev => [data.data, ...prev.slice(0, 99)]);
+      } else if (data.type === 'notarization') {
+        // Real-time notarization event — reload notarizations
+        fetchNotarizations();
       }
     };
 
@@ -90,6 +105,23 @@ export default function Dashboard({ hideHeader = false }: DashboardProps) {
     };
 
     fetchReadings();
+  }, []);
+
+  const fetchNotarizations = async () => {
+    try {
+      const res = await fetch(`${API_URL}/notarizations?limit=10`);
+      const data: Notarization[] = await res.json();
+      setNotarizations(data);
+      setLatestNotarization(data[0] ?? null);
+    } catch (error) {
+      console.error('Error fetching notarizations:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotarizations();
+    const interval = setInterval(fetchNotarizations, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Calcola metriche
@@ -166,6 +198,39 @@ export default function Dashboard({ hideHeader = false }: DashboardProps) {
             color="purple"
           />
         </div>
+
+        {/* IOTA Notarization proof banner */}
+        {latestNotarization && (
+          <div className="mb-6 bg-green-500/10 border border-green-500/30 rounded-xl p-4 flex items-center gap-4">
+            <div className="bg-green-500/20 p-2 rounded-lg shrink-0">
+              <ShieldCheck className="w-6 h-6 text-green-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-green-400 font-semibold text-sm">
+                Data Integrity Anchored on IOTA
+                {latestNotarization.gas_station === 1 && (
+                  <span className="ml-2 text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">Gas Sponsored</span>
+                )}
+              </p>
+              <p className="text-slate-400 text-xs truncate mt-0.5">{latestNotarization.description}</p>
+            </div>
+            <div className="shrink-0 text-right">
+              {latestNotarization.tx_digest && (
+                <a
+                  href={`https://explorer.testnet.iota.cafe/txblock/${latestNotarization.tx_digest}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-green-400 hover:text-green-300 text-xs font-mono underline"
+                >
+                  {latestNotarization.tx_digest.slice(0, 16)}...
+                </a>
+              )}
+              <p className="text-slate-500 text-xs mt-0.5">
+                {notarizations.length} proofs anchored
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -15,8 +16,12 @@ import {
   getDeviceReadings,
   getReadingStats,
   updateDeviceCapId,
-  DeviceWithStats
+  DeviceWithStats,
+  insertNotarization,
+  getNotarizations,
+  getNotarizationByHash
 } from './database';
+import { notarizationService } from './services/notarizationService';
 
 dotenv.config();
 
@@ -49,6 +54,13 @@ wss.on('connection', (ws) => {
 
 function broadcastReading(reading: WaterReading): void {
   const message = JSON.stringify({ type: 'reading', data: reading });
+  clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) client.send(message);
+  });
+}
+
+function broadcastNotarization(batchHash: string, result: { digest?: string; objectId?: string }): void {
+  const message = JSON.stringify({ type: 'notarization', data: { batchHash, ...result } });
   clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) client.send(message);
   });
@@ -234,6 +246,50 @@ app.get('/events/:type', async (req: Request, res: Response) => {
   res.json(events);
 });
 
+app.get('/notarizations', (req: Request, res: Response) => {
+  const limit = parseInt(req.query.limit as string) || 20;
+  res.json(getNotarizations(limit));
+});
+
+app.get('/notarizations/:hash', (req: Request, res: Response) => {
+  const hash = req.params.hash as string;
+  const record = getNotarizationByHash(hash);
+  if (!record) return res.status(404).json({ error: 'Notarization not found' }) as any;
+  res.json(record);
+});
+
+// Manually trigger a notarization anchor (for demo / testing)
+app.post('/notarizations/anchor', async (req: Request, res: Response) => {
+  const { dataHash, description } = req.body;
+  if (!dataHash) return res.status(400).json({ error: 'dataHash required' }) as any;
+
+  const desc = description ?? `Manual anchor @ ${new Date().toISOString()}`;
+  const useGasStation = !!process.env.GAS_STATION_URL;
+  const result = useGasStation
+    ? await notarizationService.notarizeWithGasStation(dataHash, desc)
+    : await notarizationService.notarizeBatchHash(dataHash, desc);
+
+  if (result.success) {
+    insertNotarization({
+      batch_hash: dataHash,
+      description: desc,
+      object_id: result.objectId ?? null,
+      tx_digest: result.digest ?? null,
+      anchored_at: Date.now(),
+      gas_station: useGasStation ? 1 : 0
+    });
+  }
+  res.json(result);
+});
+
+// Gas station status endpoint — lets frontend know if gas sponsorship is available
+app.get('/gas-station/status', (req: Request, res: Response) => {
+  res.json({
+    available: !!process.env.GAS_STATION_URL,
+    url: process.env.GAS_STATION_URL ?? null
+  });
+});
+
 // ============ EVENT HANDLERS ============
 
 iotSimulator.on('reading', (reading: WaterReading) => {
@@ -251,6 +307,8 @@ async function recordBatchToBlockchain(): Promise<void> {
   const batch = pendingReadings.splice(0, 10);
   console.log(`📤 Recording batch of ${batch.length} readings to IOTA...`);
 
+  const recordedHashes: string[] = [];
+
   for (const reading of batch) {
     const result = await iotaService.recordWaterReading(
       process.env.DEVICE_CAP_ID!,
@@ -258,12 +316,45 @@ async function recordBatchToBlockchain(): Promise<void> {
       reading.liters,
       reading.hash
     );
-    if (result.success) markReadingOnChain(reading.hash);
+    if (result.success) {
+      markReadingOnChain(reading.hash);
+      recordedHashes.push(reading.hash);
+    }
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
+  // Anchor the batch as a Locked notarization on IOTA (uses gas station if configured)
+  if (recordedHashes.length > 0) {
+    const batchHash = computeBatchHash(recordedHashes);
+    const description = `Aqua-Cert IoT batch — ${recordedHashes.length} readings @ ${new Date().toISOString()}`;
+    const useGasStation = !!process.env.GAS_STATION_URL;
+    const notarResult = useGasStation
+      ? await notarizationService.notarizeWithGasStation(batchHash, description)
+      : await notarizationService.notarizeBatchHash(batchHash, description);
+
+    if (notarResult.success) {
+      insertNotarization({
+        batch_hash: batchHash,
+        description,
+        object_id: notarResult.objectId ?? null,
+        tx_digest: notarResult.digest ?? null,
+        anchored_at: Date.now(),
+        gas_station: useGasStation ? 1 : 0
+      });
+      // Broadcast notarization event to WebSocket clients
+      broadcastNotarization(batchHash, notarResult);
+    }
+  }
+
   isRecordingToBlockchain = false;
-  console.log('✅ Batch recorded successfully');
+  console.log('✅ Batch recorded and notarized successfully');
+}
+
+function computeBatchHash(hashes: string[]): string {
+  return crypto
+    .createHash('sha256')
+    .update(hashes.join(','))
+    .digest('hex');
 }
 
 // ============ START SERVER ============
@@ -295,6 +386,10 @@ server.listen(PORT, () => {
    - POST /mint-tokens             - Mint Water Tokens
    - GET  /certificates/:address   - Certificates for wallet
    - GET  /events/:type            - Query on-chain events
+   - GET  /notarizations           - IOTA-anchored batch proofs
+   - GET  /notarizations/:hash     - Single notarization by hash
+   - POST /notarizations/anchor    - Manual notarization anchor
+   - GET  /gas-station/status      - Gas station availability
 
 🌊 ========================================
   `);

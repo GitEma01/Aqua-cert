@@ -48,6 +48,17 @@ db.exec(`
       registered_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
       active        INTEGER NOT NULL DEFAULT 1
     );
+
+    CREATE TABLE IF NOT EXISTS notarizations (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_hash  TEXT    NOT NULL UNIQUE,
+      description TEXT    NOT NULL,
+      object_id   TEXT,
+      tx_digest   TEXT,
+      anchored_at INTEGER NOT NULL,
+      gas_station INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_notarizations_ts ON notarizations(anchored_at DESC);
 `);
 
 // no-op kept for backward compatibility with server.ts import
@@ -218,4 +229,43 @@ export function getDevices(): DbDevice[] {
 
 export function getDeviceById(deviceId: string): DbDevice | undefined {
   return stmtGetDeviceById.get(deviceId) as DbDevice | undefined;
+}
+
+// ── Notarizations ─────────────────────────────────────────────────────────────
+
+export interface DbNotarization {
+  id: number;
+  batch_hash: string;
+  description: string;
+  object_id: string | null;
+  tx_digest: string | null;
+  anchored_at: number;
+  gas_station: 0 | 1;
+}
+
+const stmtInsertNotarization = db.prepare(`
+  INSERT OR IGNORE INTO notarizations (batch_hash, description, object_id, tx_digest, anchored_at, gas_station)
+  VALUES (@batch_hash, @description, @object_id, @tx_digest, @anchored_at, @gas_station)
+`);
+
+const stmtGetNotarizations = db.prepare(`
+  SELECT * FROM notarizations ORDER BY anchored_at DESC LIMIT ?
+`);
+
+const stmtGetNotarizationByHash = db.prepare(`
+  SELECT * FROM notarizations WHERE batch_hash = ?
+`);
+
+export function insertNotarization(n: Omit<DbNotarization, 'id'>): void {
+  try {
+    stmtInsertNotarization.run(n);
+  } catch (_) { /* duplicate hash — ignore */ }
+}
+
+export function getNotarizations(limit: number = 50): DbNotarization[] {
+  return stmtGetNotarizations.all(limit) as DbNotarization[];
+}
+
+export function getNotarizationByHash(hash: string): DbNotarization | undefined {
+  return stmtGetNotarizationByHash.get(hash) as DbNotarization | undefined;
 }

@@ -1,45 +1,50 @@
-import React, { useState } from 'react';
-import { Award, Download, Loader2, CheckCircle2, Droplets } from 'lucide-react';
-import { useSignAndExecuteTransaction, useCurrentAccount } from '@iota/dapp-kit';
-import { Transaction } from '@iota/iota-sdk/transactions';
+import React, { useState, useEffect } from 'react';
+import { Award, Loader2, CheckCircle2, Zap } from 'lucide-react';
+import { useCurrentAccount } from '@iota/dapp-kit';
 
 interface Props {
   stats: { totalReadings: number; totalLiters: number } | null;
   walletAddress: string;
 }
 
+const API_URL = 'http://localhost:3001';
+
 export default function CertificateCard({ stats, walletAddress }: Props) {
   const [isIssuing, setIsIssuing] = useState(false);
   const [certificateIssued, setCertificateIssued] = useState(false);
+  const [gasStationAvailable, setGasStationAvailable] = useState(false);
   const account = useCurrentAccount();
-  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
 
   const canIssueCertificate = stats && stats.totalReadings >= 10;
 
+  useEffect(() => {
+    fetch(`${API_URL}/gas-station/status`)
+      .then(r => r.json())
+      .then(d => setGasStationAvailable(d.available))
+      .catch(() => {});
+  }, []);
+
   const handleIssueCertificate = async () => {
     if (!account) return;
-    
+
     setIsIssuing(true);
-    
+
     try {
-      const response = await fetch('http://localhost:3001/issue-certificate', {
+      const response = await fetch(`${API_URL}/issue-certificate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           certificateNumber: `AQUA-${Date.now()}`,
           companyName: 'Demo Company',
-          periodStart: Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 giorni fa
+          periodStart: Date.now() - 30 * 24 * 60 * 60 * 1000,
           periodEnd: Date.now(),
           imageUrl: '',
           recipient: account.address
         })
       });
-      
+
       const result = await response.json();
-      
-      if (result.success) {
-        setCertificateIssued(true);
-      }
+      if (result.success) setCertificateIssued(true);
     } catch (error) {
       console.error('Error issuing certificate:', error);
     } finally {
@@ -126,11 +131,21 @@ export default function CertificateCard({ stats, walletAddress }: Props) {
           </div>
         </div>
 
+        {/* Gas Station badge */}
+        {gasStationAvailable && (
+          <div className="flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-2">
+            <Zap className="w-4 h-4 text-purple-400 shrink-0" />
+            <p className="text-purple-300 text-xs">
+              Gas Station active — notarizations are gas-sponsored
+            </p>
+          </div>
+        )}
+
         {/* Action Button */}
         {certificateIssued ? (
           <div className="flex items-center justify-center gap-2 bg-green-500/20 text-green-400 py-3 rounded-xl">
             <CheckCircle2 className="w-5 h-5" />
-            <span className="font-medium">Certificato Emesso!</span>
+            <span className="font-medium">Certificate Issued!</span>
           </div>
         ) : (
           <button
@@ -145,16 +160,16 @@ export default function CertificateCard({ stats, walletAddress }: Props) {
             {isIssuing ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Emissione in corso...
+                Issuing...
               </>
             ) : (
               <>
                 <Award className="w-5 h-5" />
-                {!account 
-                  ? 'Connetti Wallet' 
-                  : canIssueCertificate 
-                    ? 'Emetti Certificato NFT' 
-                    : 'Minimo 10 letture richieste'
+                {!account
+                  ? 'Connect Wallet'
+                  : canIssueCertificate
+                    ? 'Issue Water Certificate NFT'
+                    : 'Min 10 readings required'
                 }
               </>
             )}
@@ -163,7 +178,8 @@ export default function CertificateCard({ stats, walletAddress }: Props) {
 
         {/* Info */}
         <p className="text-slate-500 text-xs text-center">
-          Il certificato NFT attesta il Water Footprint verificato su IOTA Blockchain
+          Certificate NFT verifies your Water Footprint on IOTA Blockchain
+          {gasStationAvailable && ' · Gas-free via Gas Station'}
         </p>
       </div>
     </div>
