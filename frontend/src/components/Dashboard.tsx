@@ -217,7 +217,7 @@ export default function Dashboard({ hideHeader = false }: DashboardProps) {
             <div className="shrink-0 text-right">
               {latestNotarization.tx_digest && (
                 <a
-                  href={`https://explorer.testnet.iota.cafe/txblock/${latestNotarization.tx_digest}`}
+                  href={`https://explorer.rebased.iota.org/transaction/${latestNotarization.tx_digest}?network=testnet`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-green-400 hover:text-green-300 text-xs font-mono underline"

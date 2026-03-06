@@ -1,6 +1,5 @@
 import { IotaClient } from '@iota/iota-sdk/client';
 import { Ed25519Keypair } from '@iota/iota-sdk/keypairs/ed25519';
-import { toSerializedSignature } from '@iota/iota-sdk/cryptography';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -25,15 +24,20 @@ async function loadWasm() {
 function buildSigner(keypair: Ed25519Keypair) {
   return {
     sign: async (txDataBcs: Uint8Array): Promise<string> => {
-      const sigBytes = await keypair.sign(txDataBcs);
-      return toSerializedSignature({
-        signature: sigBytes,
-        signatureScheme: keypair.getKeyScheme(),
-        publicKey: keypair.getPublicKey()
-      });
+      // signTransaction handles: messageWithIntent → blake2b hash → sign → serialize
+      const { signature } = await keypair.signTransaction(txDataBcs);
+      return signature;
     },
     publicKey: async () => keypair.getPublicKey(),
-    iotaPublicKeyBytes: async () => keypair.getPublicKey().toRawBytes(),
+    // WASM expects [scheme_flag (1 byte) | raw_pubkey (32 bytes)] = 33 bytes
+    iotaPublicKeyBytes: async () => {
+      const raw = keypair.getPublicKey().toRawBytes();
+      const flag = keypair.getPublicKey().flag();
+      const result = new Uint8Array(raw.length + 1);
+      result[0] = flag;
+      result.set(raw, 1);
+      return result;
+    },
     keyId: () => keypair.getPublicKey().toIotaAddress()
   };
 }

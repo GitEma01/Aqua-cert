@@ -12,7 +12,8 @@ interface Notarization {
 }
 
 const API_URL = 'http://localhost:3001';
-const EXPLORER = 'https://explorer.testnet.iota.cafe';
+const EXPLORER = 'https://explorer.rebased.iota.org';
+const NETWORK = 'testnet';
 
 export default function NotarizationProofs() {
   const [notarizations, setNotarizations] = useState<Notarization[]>([]);
@@ -130,7 +131,7 @@ export default function NotarizationProofs() {
                 <div className="shrink-0 text-right space-y-1">
                   {n.tx_digest && (
                     <a
-                      href={`${EXPLORER}/txblock/${n.tx_digest}`}
+                      href={`${EXPLORER}/transaction/${n.tx_digest}?network=${NETWORK}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-aqua-400 hover:text-aqua-300 text-xs"
@@ -141,7 +142,7 @@ export default function NotarizationProofs() {
                   )}
                   {n.object_id && (
                     <a
-                      href={`${EXPLORER}/object/${n.object_id}`}
+                      href={`${EXPLORER}/object/${n.object_id}?network=${NETWORK}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-green-400 hover:text-green-300 text-xs"
