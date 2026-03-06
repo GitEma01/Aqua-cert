@@ -1,0 +1,23 @@
+# Environment & secrets
+backend/.env
+CLAUDE.md
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# Build output
+frontend/dist/
+backend/dist/
+
+# Database
+backend/*.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
