@@ -52,7 +52,7 @@ export default function CertificateCard({ stats, walletAddress }: Props) {
     }
   };
 
-  // Calcola classe efficienza
+  // Calculate efficiency class
   const getEfficiencyClass = () => {
     if (!stats || stats.totalReadings === 0) return { class: '-', color: 'text-slate-500' };
     const avg = (stats.totalLiters / 1000) / stats.totalReadings;
@@ -67,7 +67,7 @@ export default function CertificateCard({ stats, walletAddress }: Props) {
 
   return (
     <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl overflow-hidden">
-      {/* Header con pattern acqua */}
+      {/* Header with water pattern */}
       <div className="relative bg-gradient-to-r from-aqua-600 to-aqua-500 p-6 overflow-hidden">
         <div className="absolute inset-0 opacity-20">
           <svg viewBox="0 0 100 100" className="w-full h-full">
@@ -80,7 +80,7 @@ export default function CertificateCard({ stats, walletAddress }: Props) {
         <div className="relative flex items-center justify-between">
           <div>
             <p className="text-aqua-100 text-sm font-medium">Water Footprint</p>
-            <h3 className="text-white text-2xl font-bold">Certificato NFT</h3>
+            <h3 className="text-white text-2xl font-bold">NFT Certificate</h3>
           </div>
           <div className="bg-white/20 p-3 rounded-xl">
             <Award className="w-8 h-8 text-white" />
@@ -89,9 +89,9 @@ export default function CertificateCard({ stats, walletAddress }: Props) {
       </div>
 
       <div className="p-6 space-y-6">
-        {/* Classe Efficienza */}
+        {/* Efficiency Class */}
         <div className="flex items-center justify-between">
-          <span className="text-slate-400">Classe Efficienza</span>
+          <span className="text-slate-400">Efficiency Class</span>
           <div className={`${efficiency.bg} px-4 py-2 rounded-lg`}>
             <span className={`text-3xl font-bold ${efficiency.color}`}>
               {efficiency.class}
@@ -102,25 +102,25 @@ export default function CertificateCard({ stats, walletAddress }: Props) {
         {/* Stats */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-slate-800 rounded-lg p-4">
-            <p className="text-slate-400 text-sm">Litri Totali</p>
+            <p className="text-slate-400 text-sm">Total Liters</p>
             <p className="text-white text-xl font-bold">
               {stats ? (stats.totalLiters / 1000).toLocaleString() : '0'}
             </p>
           </div>
           <div className="bg-slate-800 rounded-lg p-4">
-            <p className="text-slate-400 text-sm">Letture</p>
+            <p className="text-slate-400 text-sm">Readings</p>
             <p className="text-white text-xl font-bold">
               {stats?.totalReadings.toLocaleString() || '0'}
             </p>
           </div>
         </div>
 
-        {/* Progress verso certificazione */}
+        {/* Progress toward certification */}
         <div>
           <div className="flex justify-between text-sm mb-2">
-            <span className="text-slate-400">Progresso Certificazione</span>
+            <span className="text-slate-400">Certification Progress</span>
             <span className="text-aqua-400">
-              {stats ? Math.min(stats.totalReadings, 10) : 0}/10 letture
+              {stats ? Math.min(stats.totalReadings, 10) : 0}/10 readings
             </span>
           </div>
           <div className="h-2 bg-slate-700 rounded-full overflow-hidden">

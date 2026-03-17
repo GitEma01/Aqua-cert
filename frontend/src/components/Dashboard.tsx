@@ -48,7 +48,7 @@ export default function Dashboard({ hideHeader = false }: DashboardProps) {
   const [notarizations, setNotarizations] = useState<Notarization[]>([]);
   const [latestNotarization, setLatestNotarization] = useState<Notarization | null>(null);
 
-  // WebSocket per dati real-time
+  // WebSocket for real-time data
   useEffect(() => {
     const ws = new WebSocket(WS_URL);
 
@@ -75,7 +75,7 @@ export default function Dashboard({ hideHeader = false }: DashboardProps) {
     return () => ws.close();
   }, []);
 
-  // Fetch iniziale stats
+  // Initial stats fetch
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -92,7 +92,7 @@ export default function Dashboard({ hideHeader = false }: DashboardProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch iniziale readings
+  // Initial readings fetch
   useEffect(() => {
     const fetchReadings = async () => {
       try {
@@ -124,18 +124,18 @@ export default function Dashboard({ hideHeader = false }: DashboardProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Calcola metriche
-  const totalLiters = stats ? stats.totalLiters / 1000 : 0; // Converti in litri reali
+  // Calculate metrics
+  const totalLiters = stats ? stats.totalLiters / 1000 : 0; // Convert to actual liters
   const totalReadings = stats?.totalReadings || 0;
   const avgPerReading = totalReadings > 0 ? totalLiters / totalReadings : 0;
-  
-  // Calcola classe efficienza
+
+  // Calculate efficiency class
   const getEfficiencyClass = (avg: number) => {
-    if (avg <= 100) return { class: 'A', color: 'text-green-500', label: 'Eccellente' };
-    if (avg <= 500) return { class: 'B', color: 'text-green-400', label: 'Buono' };
-    if (avg <= 1000) return { class: 'C', color: 'text-yellow-500', label: 'Medio' };
-    if (avg <= 5000) return { class: 'D', color: 'text-orange-500', label: 'Scarso' };
-    return { class: 'E', color: 'text-red-500', label: 'Critico' };
+    if (avg <= 100) return { class: 'A', color: 'text-green-500', label: 'Excellent' };
+    if (avg <= 500) return { class: 'B', color: 'text-green-400', label: 'Good' };
+    if (avg <= 1000) return { class: 'C', color: 'text-yellow-500', label: 'Average' };
+    if (avg <= 5000) return { class: 'D', color: 'text-orange-500', label: 'Poor' };
+    return { class: 'E', color: 'text-red-500', label: 'Critical' };
   };
 
   const efficiency = getEfficiencyClass(avgPerReading);
@@ -171,30 +171,30 @@ export default function Dashboard({ hideHeader = false }: DashboardProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatsCard
             icon={<Droplets className="w-6 h-6" />}
-            title="Consumo Totale"
+            title="Total Consumption"
             value={`${totalLiters.toLocaleString()} L`}
-            subtitle="Litri registrati"
+            subtitle="Registered liters"
             color="aqua"
           />
           <StatsCard
             icon={<Activity className="w-6 h-6" />}
-            title="Letture IoT"
+            title="IoT Readings"
             value={totalReadings.toLocaleString()}
-            subtitle="Dati certificati su IOTA"
+            subtitle="Data certified on IOTA"
             color="blue"
           />
           <StatsCard
             icon={<Leaf className={`w-6 h-6 ${efficiency.color}`} />}
-            title="Classe Efficienza"
+            title="Efficiency Class"
             value={efficiency.class}
             subtitle={efficiency.label}
             color="green"
           />
           <StatsCard
             icon={<TrendingDown className="w-6 h-6" />}
-            title="Media/Lettura"
+            title="Avg/Reading"
             value={`${avgPerReading.toFixed(1)} L`}
-            subtitle="Efficienza idrica"
+            subtitle="Water efficiency"
             color="purple"
           />
         </div>
@@ -234,18 +234,18 @@ export default function Dashboard({ hideHeader = false }: DashboardProps) {
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Chart - 2 colonne */}
+          {/* Chart - 2 columns */}
           <div className="lg:col-span-2">
             <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6">
               <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
                 <Activity className="w-5 h-5 text-aqua-400" />
-                Flusso Idrico Real-Time
+                Real-Time Water Flow
               </h2>
               <WaterFlowChart readings={readings} />
             </div>
           </div>
 
-          {/* Certificato - 1 colonna */}
+          {/* Certificate - 1 column */}
           <div>
             <CertificateCard 
               stats={stats}
@@ -259,14 +259,14 @@ export default function Dashboard({ hideHeader = false }: DashboardProps) {
           <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6">
             <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
               <Activity className="w-5 h-5 text-aqua-400" />
-              Letture Recenti (Blockchain-Verified)
+              Recent Readings (Blockchain-Verified)
             </h2>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="text-slate-400 text-sm border-b border-slate-700">
                     <th className="text-left py-3 px-4">Device</th>
-                    <th className="text-left py-3 px-4">Litri</th>
+                    <th className="text-left py-3 px-4">Liters</th>
                     <th className="text-left py-3 px-4">Flow Rate</th>
                     <th className="text-left py-3 px-4">Timestamp</th>
                     <th className="text-left py-3 px-4">Hash</th>

@@ -27,7 +27,7 @@ interface Props {
 
 export default function WaterFlowChart({ readings }: Props) {
   const chartData = useMemo(() => {
-    // Raggruppa per timestamp (arrotondato a secondi)
+    // Group by timestamp (rounded to seconds)
     const grouped = readings.slice(0, 50).reduce((acc, reading) => {
       const timeKey = Math.floor(reading.timestamp / 1000) * 1000;
       if (!acc[timeKey]) {
@@ -104,7 +104,7 @@ export default function WaterFlowChart({ readings }: Props) {
             stroke="#64748b" 
             tick={{ fill: '#94a3b8', fontSize: 12 }}
             label={{ 
-              value: 'Litri', 
+              value: 'Liters',
               angle: -90, 
               position: 'insideLeft',
               style: { fill: '#94a3b8' }
@@ -118,7 +118,7 @@ export default function WaterFlowChart({ readings }: Props) {
           <Area
             type="monotone"
             dataKey="irrigation"
-            name="Irrigazione"
+            name="Irrigation"
             stackId="1"
             stroke="#00e0ff"
             fill="url(#colorIrrigation)"
@@ -126,7 +126,7 @@ export default function WaterFlowChart({ readings }: Props) {
           <Area
             type="monotone"
             dataKey="industrial"
-            name="Industriale"
+            name="Industrial"
             stackId="1"
             stroke="#8b5cf6"
             fill="url(#colorIndustrial)"
