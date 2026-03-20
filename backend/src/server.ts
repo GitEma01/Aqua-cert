@@ -420,7 +420,7 @@ async function recordBatchToBlockchain(): Promise<void> {
       markReadingOnChain(reading.hash);
       recordedHashes.push(reading.hash);
     }
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 3000));
   }
 
   // Anchor the batch as a Locked notarization on IOTA (uses gas station if configured)
@@ -446,6 +446,7 @@ async function recordBatchToBlockchain(): Promise<void> {
     }
   }
 
+  await new Promise(resolve => setTimeout(resolve, 5000)); // cooldown before next batch
   isRecordingToBlockchain = false;
   console.log('✅ Batch recorded and notarized successfully');
 }
