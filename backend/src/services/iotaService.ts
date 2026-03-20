@@ -58,43 +58,83 @@ class IOTAService {
   }
 
   /**
+   * Returns available (unlocked) gas coins for the backend wallet,
+   * sorted so the freshest coin is tried first.
+   */
+  private async getUnlockedGasCoins() {
+    const address = await this.getAddress();
+    const resp = await this.client.getCoins({ owner: address });
+    // Sort descending by balance — faucet coins tend to be large and fresh
+    return resp.data.sort((a, b) => Number(BigInt(b.balance) - BigInt(a.balance)));
+  }
+
+  /**
    * Executes a transaction — uses IOTA Gas Station when configured,
    * otherwise falls back to direct signing with the backend keypair.
+   * Iterates through available gas coins to skip any locked by stuck txs.
    */
   private async executeTransaction(
     tx: Transaction,
     options = { showEffects: true, showEvents: true, showObjectChanges: true }
   ) {
     if (gasStationService.isAvailable()) {
-      const senderAddress = await this.getAddress();
-      const reservation = await gasStationService.reserveGas();
+      try {
+        const senderAddress = await this.getAddress();
+        const reservation = await gasStationService.reserveGas();
 
-      tx.setSender(senderAddress);
-      tx.setGasOwner(reservation.sponsor_address);
-      tx.setGasPayment(reservation.gas_coins as any);
-      tx.setGasBudget(50_000_000);
+        tx.setSender(senderAddress);
+        tx.setGasOwner(reservation.sponsor_address);
+        tx.setGasPayment(reservation.gas_coins as any);
+        tx.setGasBudget(50_000_000);
 
-      const txBytes = await tx.build({ client: this.client });
-      const txBytesBase64 = Buffer.from(txBytes).toString('base64');
-      const { signature } = await this.keypair.signTransaction(txBytes);
+        const txBytes = await tx.build({ client: this.client });
+        const txBytesBase64 = Buffer.from(txBytes).toString('base64');
+        const { signature } = await this.keypair.signTransaction(txBytes);
 
-      const { digest } = await gasStationService.executeTx(
-        reservation.reservation_id,
-        txBytesBase64,
-        signature
-      );
+        const { digest } = await gasStationService.executeTx(
+          reservation.reservation_id,
+          txBytesBase64,
+          signature
+        );
 
-      console.log(`⛽ Gas-sponsored tx: ${digest}`);
+        console.log(`⛽ Gas-sponsored tx: ${digest}`);
 
-      // Fetch full details (objectChanges, events) for downstream parsing
-      return this.client.getTransactionBlock({ digest, options });
+        // Fetch full details (objectChanges, events) for downstream parsing
+        return this.client.getTransactionBlock({ digest, options });
+      } catch (err) {
+        console.warn('⚠️  Gas station unavailable, falling back to direct signing:', (err as Error).message);
+      }
     }
 
-    return this.client.signAndExecuteTransaction({
-      transaction: tx,
-      signer: this.keypair,
-      options
-    });
+    // Try each gas coin in turn — skip any locked by stuck transactions
+    const coins = await this.getUnlockedGasCoins();
+    let lastError: Error = new Error('No gas coins available');
+
+    for (const coin of coins) {
+      try {
+        tx.setGasPayment([{
+          objectId: coin.coinObjectId,
+          version: coin.version,
+          digest: coin.digest
+        }]);
+        const result = await this.client.signAndExecuteTransaction({
+          transaction: tx,
+          signer: this.keypair,
+          options
+        });
+        return result;
+      } catch (err: any) {
+        lastError = err;
+        if (err?.message?.includes('reserved for another transaction') ||
+            err?.code === -32002) {
+          console.warn(`⚠️  Gas coin ${coin.coinObjectId} locked, trying next...`);
+          continue;
+        }
+        throw err; // non-lock error — propagate immediately
+      }
+    }
+
+    throw lastError;
   }
 
   /**
