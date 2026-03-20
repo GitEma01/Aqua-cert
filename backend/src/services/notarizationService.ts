@@ -12,7 +12,8 @@ export interface NotarizationResult {
 }
 
 // Lazy-loaded WASM module — avoids top-level await issues
-let wasm: typeof import('@iota/notarization/node') | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let wasm: any = null;
 
 async function loadWasm() {
   if (wasm) return wasm;
