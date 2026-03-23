@@ -44,7 +44,7 @@ function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-const API_URL = 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const EXPLORER = 'https://explorer.rebased.iota.org';
 const NETWORK = 'testnet';
 

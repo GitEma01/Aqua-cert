@@ -64,38 +64,56 @@ class NotarizationService {
    */
   async notarizeBatchHash(
     batchHash: string,
-    description: string
+    description: string,
+    maxRetries = 4
   ): Promise<NotarizationResult> {
-    try {
-      const { NotarizationClientReadOnly, NotarizationClient } = await loadWasm();
+    let lastError: any;
 
-      const readOnlyClient = await NotarizationClientReadOnly.create(this.iotaClient);
-      const signer = buildSigner(this.keypair);
-      const client = await NotarizationClient.create(readOnlyClient, signer);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const { NotarizationClientReadOnly, NotarizationClient } = await loadWasm();
 
-      const txBuilder = client
-        .createLocked()
-        .withStringState(batchHash, 'sha256')
-        .withImmutableDescription(description)
-        .finish();
+        // Create fresh client each attempt so WASM re-fetches current coin versions
+        const readOnlyClient = await NotarizationClientReadOnly.create(this.iotaClient);
+        const signer = buildSigner(this.keypair);
+        const client = await NotarizationClient.create(readOnlyClient, signer);
 
-      // buildAndExecute — client satisfies CoreClient<TransactionSigner>
-      const result = await txBuilder.buildAndExecute(client as any);
+        const txBuilder = client
+          .createLocked()
+          .withStringState(batchHash, 'sha256')
+          .withImmutableDescription(description)
+          .finish();
 
-      const digest = result.response.digest;
+        const result = await txBuilder.buildAndExecute(client as any);
 
-      // Extract the created notarization object ID from effects
-      const created = result.response.effects?.created;
-      const objectId = Array.isArray(created) && created.length > 0
-        ? (created[0] as any).reference?.objectId
-        : undefined;
+        const digest = result.response.digest;
+        const created = result.response.effects?.created;
+        const objectId = Array.isArray(created) && created.length > 0
+          ? (created[0] as any).reference?.objectId
+          : undefined;
 
-      console.log(`✅ Notarization anchored: ${digest} | object: ${objectId}`);
-      return { success: true, digest, objectId };
-    } catch (error: any) {
-      console.error('❌ Notarization failed:', error.message ?? error);
-      return { success: false, error: error.message ?? String(error) };
+        console.log(`✅ Notarization anchored: ${digest} | object: ${objectId}`);
+        return { success: true, digest, objectId };
+      } catch (error: any) {
+        lastError = error;
+        const msg: string = error?.message ?? String(error);
+        const isLockError =
+          msg.includes('reserved for another transaction') ||
+          msg.includes('is not available for consumption') ||
+          msg.includes('locked');
+
+        if (isLockError && attempt < maxRetries) {
+          console.warn(`⚠️  Notarization attempt ${attempt}/${maxRetries} hit locked coin, retrying in 3s...`);
+          await new Promise(r => setTimeout(r, 3000));
+          continue;
+        }
+
+        console.error('❌ Notarization failed:', msg);
+        return { success: false, error: msg };
+      }
     }
+
+    return { success: false, error: lastError?.message ?? String(lastError) };
   }
 
   /**

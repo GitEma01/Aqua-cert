@@ -1,0 +1,78 @@
+<svg width="2000" height="2000" viewBox="0 0 2000 2000" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Outer glow ring -->
+  <circle cx="1000" cy="1000" r="880" stroke="#00e0ff" stroke-width="4" stroke-opacity="0.15"/>
+  <circle cx="1000" cy="1000" r="820" stroke="#00e0ff" stroke-width="2" stroke-opacity="0.08"/>
+
+  <!-- Water drop main shape -->
+  <path d="M1000 220
+    C1000 220 460 660 460 980
+    C460 1290 700 1530 1000 1530
+    C1300 1530 1540 1290 1540 980
+    C1540 660 1000 220 1000 220Z"
+    fill="url(#mainDropGradient)"/>
+
+  <!-- Drop inner highlight (left reflection) -->
+  <path d="M780 720
+    C720 820 700 920 700 1000
+    C700 1080 720 1160 760 1230"
+    stroke="white" stroke-width="28" stroke-linecap="round" stroke-opacity="0.18"/>
+
+  <!-- Drop inner highlight (small dot) -->
+  <ellipse cx="860" cy="620" rx="40" ry="60" fill="white" opacity="0.12" transform="rotate(-20 860 620)"/>
+
+  <!-- Certificate shield -->
+  <path d="M1000 680
+    L640 820
+    L640 1100
+    C640 1310 800 1480 1000 1540
+    C1200 1480 1360 1310 1360 1100
+    L1360 820
+    Z"
+    fill="url(#shieldGradient)"
+    stroke="white" stroke-width="12" stroke-linejoin="round" stroke-opacity="0.25"/>
+
+  <!-- Shield inner glow -->
+  <path d="M1000 720
+    L680 845
+    L680 1095
+    C680 1280 820 1435 1000 1490
+    C1180 1435 1320 1280 1320 1095
+    L1320 845
+    Z"
+    fill="url(#shieldInnerGradient)" opacity="0.4"/>
+
+  <!-- Checkmark -->
+  <path d="M820 1010 L940 1140 L1200 860"
+    stroke="white"
+    stroke-width="72"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"/>
+
+  <!-- Decorative ring dots -->
+  <circle cx="1000" cy="118" r="18" fill="#00e0ff" opacity="0.5"/>
+  <circle cx="1000" cy="1882" r="18" fill="#00e0ff" opacity="0.5"/>
+  <circle cx="118" cy="1000" r="18" fill="#00e0ff" opacity="0.5"/>
+  <circle cx="1882" cy="1000" r="18" fill="#00e0ff" opacity="0.5"/>
+  <circle cx="291" cy="291" r="12" fill="#00e0ff" opacity="0.3"/>
+  <circle cx="1709" cy="291" r="12" fill="#00e0ff" opacity="0.3"/>
+  <circle cx="291" cy="1709" r="12" fill="#00e0ff" opacity="0.3"/>
+  <circle cx="1709" cy="1709" r="12" fill="#00e0ff" opacity="0.3"/>
+
+  <defs>
+    <linearGradient id="mainDropGradient" x1="1000" y1="220" x2="1000" y2="1530" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#66efff"/>
+      <stop offset="50%" stop-color="#00b3cc"/>
+      <stop offset="100%" stop-color="#005a80"/>
+    </linearGradient>
+    <linearGradient id="shieldGradient" x1="1000" y1="680" x2="1000" y2="1540" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.03"/>
+    </linearGradient>
+    <linearGradient id="shieldInnerGradient" x1="1000" y1="720" x2="1000" y2="1490" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00e0ff" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#0086cc" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+</svg>

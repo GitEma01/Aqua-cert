@@ -6,6 +6,8 @@ import CertificateHistory from './components/CertificateHistory';
 import DeviceManager from './components/DeviceManager';
 import NotarizationProofs from './components/NotarizationProofs';
 import Analytics from './components/Analytics';
+import LandingPage from './components/LandingPage';
+import AquaCertLogo from './components/AquaCertLogo';
 
 type Tab = 'dashboard' | 'certificates' | 'devices' | 'notarizations' | 'analytics';
 
@@ -37,7 +39,12 @@ function TabButton({
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+  const [showApp, setShowApp] = useState(false);
   const account = useCurrentAccount();
+
+  if (!showApp) {
+    return <LandingPage onEnterApp={() => setShowApp(true)} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -46,15 +53,18 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-4">
             {/* Logo */}
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="bg-aqua-500/20 p-2 rounded-lg">
-                <Droplets className="w-8 h-8 text-aqua-400" />
+            <button
+              onClick={() => setShowApp(false)}
+              className="flex items-center gap-3 shrink-0 hover:opacity-80 transition-opacity"
+            >
+              <AquaCertLogo size={40} />
+              <div className="text-left">
+                <h1 className="text-2xl font-bold text-white leading-tight">
+                  Aqua<span className="text-aqua-400">Cert</span>
+                </h1>
+                <p className="text-slate-400 text-xs">Water Footprint Verification on IOTA</p>
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-white">Aqua-Cert</h1>
-                <p className="text-slate-400 text-sm">Water Footprint Verification on IOTA</p>
-              </div>
-            </div>
+            </button>
 
             {/* Tab navigation */}
             <nav className="flex gap-1 bg-slate-900/50 rounded-xl p-1">

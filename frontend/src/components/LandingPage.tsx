@@ -112,7 +112,7 @@ export default function LandingPage({ onEnterApp }: Props) {
           className={`mb-8 inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-aqua-500/30 bg-aqua-500/10 text-aqua-400 text-sm font-medium transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}
         >
           <span className="w-2 h-2 rounded-full bg-aqua-400 animate-pulse" />
-          Built on IOTA Testnet · MasterZ × IOTA Hackathon 2025
+          Built on IOTA Testnet · MasterZ × IOTA Hackathon 2026
         </div>
 
         {/* Logo + title */}
@@ -272,7 +272,7 @@ export default function LandingPage({ onEnterApp }: Props) {
       {/* ── Footer ── */}
       <footer className="py-8 px-6 border-t border-slate-700/50 text-center text-slate-500 text-sm">
         <p>
-          AquaCert · MasterZ × IOTA Hackathon 2025 ·{' '}
+          AquaCert · MasterZ × IOTA Hackathon 2026 ·{' '}
           <a href={EXPLORER} target="_blank" rel="noopener noreferrer" className="text-aqua-500/70 hover:text-aqua-400 transition-colors">
             View on IOTA Explorer
           </a>

@@ -33,8 +33,8 @@ interface Notarization {
   gas_station: 0 | 1;
 }
 
-const API_URL = 'http://localhost:3001';
-const WS_URL = 'ws://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const WS_URL = API_URL.replace(/^http/, 'ws');
 
 interface DashboardProps {
   hideHeader?: boolean;
@@ -305,7 +305,7 @@ export default function Dashboard({ hideHeader = false }: DashboardProps) {
       <footer className="mt-16 py-8 border-t border-slate-700">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <p className="text-slate-500 text-sm">
-            🌊 Aqua-Cert - Powered by IOTA Blockchain | MasterZ × IOTA Hackathon 2025
+            🌊 Aqua-Cert - Powered by IOTA Blockchain | MasterZ × IOTA Hackathon 2026
           </p>
         </div>
       </footer>
